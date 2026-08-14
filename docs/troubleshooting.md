@@ -23,7 +23,7 @@ Fallback that always works: `python3 "$CLAUDE_VIDEO_KIT/bin/vk.py" …`.
    `ls -l ~/.claude/skills | grep video` (Windows: `dir /AL %USERPROFILE%\.claude\skills`).
 2. Restart Claude Code — skills are read at startup.
 3. A skill is only *offered* when the request matches its description. Ask for it by name to force
-   it: "usa la skill video-bug-scan con este archivo".
+   it: "usa la skill recording-brief con este archivo".
 
 ## `no transcription engine worked`
 
@@ -77,9 +77,10 @@ npx -y @railsblueprint/blueprint-mcp@latest           # run by hand, read the ac
 
 Needs Node on PATH. On Windows inside Claude Desktop, wrap it: `cmd /c npx -y @railsblueprint/blueprint-mcp@latest`.
 
-## `prepare.sh` fails on Windows
+## Shell snippets in the skills fail on Windows
 
-It is a bash script — use `vk prepare` or `prepare.cmd` instead. Git Bash and WSL also work.
+The skills document POSIX one-liners. `vk` itself is native on Windows; for the surrounding
+`grep`/`ps` snippets use Git Bash, WSL, or the PowerShell equivalent noted in the skill.
 
 ## Frames are enormous / too many
 

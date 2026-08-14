@@ -114,9 +114,8 @@ Always pass `-hide_banner -loglevel error` in scripts, and `-y` when overwriting
 
 | Input | Skill |
 |---|---|
-| Screen recording of a bug, narrated | `video-bug-scan` |
-| Meeting / lecture / webinar recording to summarize | `recording-brief` |
-| Need to *produce* a recording of a web app | `pwa-walkthrough-test` |
+| Class, lecture, webinar, course module, meeting or talk to summarize | `recording-brief` |
+| Any other existing clip — transcribe, cut, convert, sample frames | this skill, directly |
 | Author a new video / motion graphic from scratch | HyperFrames pack (`npx hyperframes`) — not this kit |
 
 ## 6 · Gotchas

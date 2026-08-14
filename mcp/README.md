@@ -47,7 +47,7 @@ On Windows, if `npx` is not resolved from the desktop app, use
 
 | Server | Why | Command |
 |---|---|---|
-| `playwright` | scripted recordings for `pwa-walkthrough-test` | `claude mcp add playwright -s user -- npx -y @playwright/mcp@latest` |
+| `playwright` | scripted browser sessions / capturing your own screen recordings | `claude mcp add playwright -s user -- npx -y @playwright/mcp@latest` |
 | `browsermcp` | alternative browser bridge (Chrome extension) | see browsermcp.io |
 
 `servers.json` in this folder holds the same definitions in Claude-Desktop format, for copy-paste.

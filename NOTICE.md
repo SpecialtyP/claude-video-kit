@@ -33,9 +33,8 @@ into this repository.
 
 ## Prior art
 
-`pwa-walkthrough-test` and `video-bug-scan` were written for internal use and generalized here.
-`recording-brief` generalizes a Zoom + Blackboard lecture workflow (the personal,
-institution-specific original stays out of this repo).
+`recording-brief` generalizes a Zoom + LMS lecture workflow written for a single course; the
+institution-specific original stays out of this repo.
 
 ## Usage boundary
 

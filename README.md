@@ -15,10 +15,8 @@ report. One `git clone` + one installer brings a Linux, macOS or Windows machine
 
 | Skill | Does |
 |---|---|
-| **video-toolkit** | The base contract: `vk` verbs, Whisper engines + model/language rules, yt-dlp downloads, the ffmpeg recipes worth not re-deriving. Every other skill leans on this. |
-| **video-bug-scan** | Screen recording of a bug → frames + transcript → root-caused, dated bug report → batched fix. |
-| **recording-brief** | Session recording (Zoom/Meet/Loom/local) → download via browser cookies → frames + transcript → study/meeting brief. |
-| **pwa-walkthrough-test** | The other direction: drive a PWA/SPA with Playwright, record it, validate against bug fingerprints, concat to a single MP4. |
+| **video-toolkit** | The base contract: `vk` verbs, Whisper engines + model/language rules, yt-dlp downloads, the ffmpeg recipes worth not re-deriving. |
+| **recording-brief** | Any recorded session — class, lecture, webinar, course module, meeting, talk — from Zoom / Meet / Teams / Loom / YouTube / an LMS player / a local file → download (browser cookies for gated ones) → frames + transcript → a timestamped brief. Optionally mirrors the course structure on disk. |
 
 ### `vk` — one CLI, three operating systems
 
@@ -95,10 +93,10 @@ cd ~/claude-video-kit && git pull && bash install/install.sh -y
 
 Ask Claude Code, in plain language:
 
-- *"Analiza este video y arregla los bugs: ~/Downloads/demo.mp4"* → `video-bug-scan`
-- *"Descarga esta grabación de Zoom y hazme un brief"* → `recording-brief`
-- *"Graba un walkthrough de la app y mándamelo en MP4"* → `pwa-walkthrough-test`
+- *"Descarga esta grabación de Zoom y hazme un brief para el examen"* → `recording-brief`
+- *"Resume esta clase / este webinar / esta reunión"* → `recording-brief`
 - *"Transcribe este audio en español"* → `video-toolkit`
+- *"Sácame frames de este video cada 30 segundos"* → `video-toolkit`
 
 Or drive the CLI directly:
 
