@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+#
+# claude-video-kit — installer for macOS and Linux.
+#
+#   bash install/install.sh [options]
+#
+# Options:
+#   --engine faster|openai|none   Whisper engine to install   (default: faster)
+#   --copy                        Copy skills instead of symlinking them
+#   --with-hyperframes            Also install the HyperFrames authoring skill pack (upstream)
+#   --no-mcp                      Skip MCP server registration
+#   --no-deps                     Skip system package installation (ffmpeg/node/yt-dlp)
+#   -y, --yes                     Non-interactive: assume yes
+#   -h, --help                    This help
+#
+# Idempotent: safe to re-run after `git pull`.
+set -euo pipefail
+
+KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+SKILLS_DIR="$CLAUDE_DIR/skills"
+VENV="$KIT/.venv"
+BIN_DIR="$HOME/.local/bin"
+
+ENGINE=faster
+LINK_MODE=symlink
+WITH_HF=0
+DO_MCP=1
+DO_DEPS=1
+ASSUME_YES=0
+
+bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+info() { printf '  \033[36m·\033[0m %s\n' "$*"; }
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
+die()  { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --engine) ENGINE="${2:-}"; shift 2 ;;
+    --copy) LINK_MODE=copy; shift ;;
+    --with-hyperframes) WITH_HF=1; shift ;;
+    --no-mcp) DO_MCP=0; shift ;;
+    --no-deps) DO_DEPS=0; shift ;;
+    -y|--yes) ASSUME_YES=1; shift ;;
+    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) die "unknown option: $1" ;;
+  esac
+done
+case "$ENGINE" in faster|openai|none) ;; *) die "--engine must be faster|openai|none" ;; esac
+
+confirm() {
+  [[ $ASSUME_YES -eq 1 ]] && return 0
+  read -r -p "  ? $1 [Y/n] " a || true
+  [[ -z "$a" || "$a" =~ ^[Yy] ]]
+}
+
+# ── 1 · platform + package manager ─────────────────────────────────────────
+bold "claude-video-kit installer"
+OS="linux"; [[ "$(uname -s)" == "Darwin" ]] && OS="macos"
+PM=""
+if [[ $OS == macos ]]; then
+  command -v brew >/dev/null && PM=brew
+else
+  for p in apt-get dnf pacman zypper apk; do command -v $p >/dev/null && { PM=$p; break; }; done
+fi
+info "platform: $OS   package manager: ${PM:-none detected}"
+info "kit:      $KIT"
+
+pm_install() {
+  local pkgs=("$@")
+  [[ ${#pkgs[@]} -eq 0 ]] && return 0
+  case "$PM" in
+    brew)    brew install "${pkgs[@]}" ;;
+    apt-get) sudo apt-get update -qq && sudo apt-get install -y "${pkgs[@]}" ;;
+    dnf)     sudo dnf install -y "${pkgs[@]}" ;;
+    pacman)  sudo pacman -S --needed --noconfirm "${pkgs[@]}" ;;
+    zypper)  sudo zypper install -y "${pkgs[@]}" ;;
+    apk)     sudo apk add "${pkgs[@]}" ;;
+    *)       warn "no package manager — install manually: ${pkgs[*]}"; return 1 ;;
+  esac
+}
+
+# ── 2 · system dependencies ────────────────────────────────────────────────
+bold "1/6 system dependencies"
+if [[ $DO_DEPS -eq 1 ]]; then
+  missing=()
+  command -v ffmpeg  >/dev/null || missing+=(ffmpeg)
+  command -v python3 >/dev/null || missing+=(python3)
+  command -v node    >/dev/null || missing+=(node)
+  command -v yt-dlp  >/dev/null || missing+=(yt-dlp)
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    ok "ffmpeg, python3, node, yt-dlp already present"
+  else
+    info "missing: ${missing[*]}"
+    if confirm "install them with ${PM:-your package manager}?"; then
+      # package names differ slightly per manager
+      pkgs=()
+      for m in "${missing[@]}"; do
+        case "$m:$PM" in
+          node:apt-get) pkgs+=(nodejs npm) ;;
+          node:*)       pkgs+=(nodejs) ;;
+          python3:brew) pkgs+=(python) ;;
+          *)            pkgs+=("$m") ;;
+        esac
+      done
+      pm_install "${pkgs[@]}" || warn "install some of these manually: ${missing[*]}"
+    else
+      warn "skipped — ffmpeg and python3 are required for anything to work"
+    fi
+  fi
+else
+  info "--no-deps: skipping system packages"
+fi
+command -v ffmpeg >/dev/null || warn "ffmpeg still missing — video processing will fail"
+
+# ── 3 · python venv + whisper engine ───────────────────────────────────────
+bold "2/6 whisper engine ($ENGINE)"
+if [[ $ENGINE == none ]]; then
+  info "skipped by --engine none"
+else
+  PY=$(command -v python3 || command -v python) || die "python3 not found"
+  [[ -d "$VENV" ]] || "$PY" -m venv "$VENV"
+  "$VENV/bin/python" -m pip install --quiet --upgrade pip
+  case "$ENGINE" in
+    faster) "$VENV/bin/python" -m pip install --quiet faster-whisper && ok "faster-whisper (CTranslate2, no torch)" ;;
+    openai) "$VENV/bin/python" -m pip install --quiet openai-whisper && ok "openai-whisper (PyTorch — large download)" ;;
+  esac
+  info "venv: $VENV  (models download on first use)"
+fi
+
+# ── 4 · vk launcher ────────────────────────────────────────────────────────
+bold "3/6 vk launcher"
+mkdir -p "$BIN_DIR"
+cat > "$BIN_DIR/vk" <<EOF
+#!/usr/bin/env bash
+# claude-video-kit launcher (generated by install.sh)
+KIT="$KIT"
+if [[ -x "\$KIT/.venv/bin/python" ]]; then PY="\$KIT/.venv/bin/python"; else PY=\$(command -v python3 || command -v python); fi
+exec "\$PY" "\$KIT/bin/vk.py" "\$@"
+EOF
+chmod +x "$BIN_DIR/vk" "$KIT/bin/vk.py"
+ok "$BIN_DIR/vk"
+case ":$PATH:" in
+  *":$BIN_DIR:"*) ;;
+  *) warn "$BIN_DIR is not on PATH — add it:"
+     echo "        bash/zsh:  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.profile"
+     echo "        fish:      fish_add_path ~/.local/bin" ;;
+esac
+
+# ── 5 · skills ─────────────────────────────────────────────────────────────
+bold "4/6 skills → $SKILLS_DIR"
+mkdir -p "$SKILLS_DIR"
+for src in "$KIT"/skills/*/; do
+  name=$(basename "$src")
+  dest="$SKILLS_DIR/$name"
+  if [[ -e "$dest" && ! -L "$dest" && $LINK_MODE == symlink ]]; then
+    if confirm "$name already exists as a real directory — replace it with a link to the kit?"; then
+      mv "$dest" "$dest.bak-$(date +%s)"
+    else
+      info "$name — kept existing, skipped"; continue
+    fi
+  fi
+  rm -rf "$dest"
+  if [[ $LINK_MODE == symlink ]]; then ln -s "${src%/}" "$dest"; else cp -r "${src%/}" "$dest"; fi
+  ok "$name ($LINK_MODE)"
+done
+
+# marker so the skills can find the kit from anywhere
+python3 - "$CLAUDE_DIR" "$KIT" <<'PY'
+import json, os, sys, time
+claude_dir, kit = sys.argv[1], sys.argv[2]
+os.makedirs(claude_dir, exist_ok=True)
+p = os.path.join(claude_dir, "video-kit.json")
+json.dump({"kitPath": kit, "installedAt": time.strftime("%Y-%m-%dT%H:%M:%S")},
+          open(p, "w"), indent=2)
+print(f"  \033[32m✓\033[0m {p}")
+PY
+
+# ── 6 · MCP servers ────────────────────────────────────────────────────────
+bold "5/6 MCP servers"
+if [[ $DO_MCP -eq 0 ]]; then
+  info "--no-mcp: skipped"
+elif ! command -v claude >/dev/null; then
+  warn "claude CLI not found — register manually later:"
+  echo "        claude mcp add blueprint -s user -- npx -y @railsblueprint/blueprint-mcp@latest"
+else
+  existing=$(claude mcp list 2>/dev/null || true)
+  if grep -q "^blueprint\b\|blueprint:" <<<"$existing"; then
+    ok "blueprint already registered"
+  elif confirm "register the blueprint MCP server (browser automation) for your user?"; then
+    claude mcp add blueprint -s user -- npx -y @railsblueprint/blueprint-mcp@latest \
+      && ok "blueprint registered" || warn "registration failed — see mcp/README.md"
+  fi
+fi
+
+# ── 7 · optional HyperFrames pack ──────────────────────────────────────────
+bold "6/6 HyperFrames authoring pack (optional)"
+if [[ $WITH_HF -eq 1 ]]; then
+  if command -v npx >/dev/null; then
+    npx -y hyperframes@latest skills && ok "HyperFrames skill pack installed by upstream"
+  else
+    warn "npx not found — install Node ≥ 22, then: npx hyperframes skills"
+  fi
+else
+  info "skipped (pass --with-hyperframes to install it from upstream)"
+fi
+
+# ── done ───────────────────────────────────────────────────────────────────
+echo
+"$BIN_DIR/vk" doctor || true
+echo
+bold "Done. Restart Claude Code so it picks up the new skills."

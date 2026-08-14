@@ -1,0 +1,15 @@
+{
+  "_comment": "Claude Desktop format. For Claude Code use `claude mcp add ...` (see README.md).",
+  "mcpServers": {
+    "blueprint": {
+      "command": "npx",
+      "args": ["-y", "@railsblueprint/blueprint-mcp@latest"],
+      "env": {}
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {}
+    }
+  }
+}
