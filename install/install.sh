@@ -185,8 +185,8 @@ elif ! command -v claude >/dev/null; then
   warn "claude CLI not found — register manually later:"
   echo "        claude mcp add blueprint -s user -- npx -y @railsblueprint/blueprint-mcp@latest"
 else
-  existing=$(claude mcp list 2>/dev/null || true)
-  if grep -q "^blueprint\b\|blueprint:" <<<"$existing"; then
+  # `mcp get` is exact and fast; `mcp list` health-checks every server
+  if claude mcp get blueprint >/dev/null 2>&1; then
     ok "blueprint already registered"
   elif confirm "register the blueprint MCP server (browser automation) for your user?"; then
     claude mcp add blueprint -s user -- npx -y @railsblueprint/blueprint-mcp@latest \

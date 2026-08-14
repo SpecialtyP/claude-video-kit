@@ -173,8 +173,9 @@ if ($NoMcp) {
   Write-Warn2 "claude CLI not found — register manually later:"
   Write-Host  "        claude mcp add blueprint -s user -- npx -y @railsblueprint/blueprint-mcp@latest"
 } else {
-  $existing = (claude mcp list 2>$null) -join "`n"
-  if ($existing -match 'blueprint') {
+  # `mcp get` is exact and fast; `mcp list` health-checks every server
+  claude mcp get blueprint *> $null
+  if ($LASTEXITCODE -eq 0) {
     Write-Ok "blueprint already registered"
   } elseif (Confirm-Step "register the blueprint MCP server (browser automation) for your user?") {
     claude mcp add blueprint -s user -- npx -y '@railsblueprint/blueprint-mcp@latest'
